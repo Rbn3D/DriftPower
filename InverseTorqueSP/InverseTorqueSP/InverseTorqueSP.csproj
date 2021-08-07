@@ -1,15 +1,33 @@
-﻿<Project Sdk="Microsoft.NET.Sdk">
-  <PropertyGroup>
-    <TargetFrameworks>net48</TargetFrameworks>
-    <LangVersion>8.0</LangVersion>
-    <!--<Nullable>enable</Nullable>-->
+﻿<Project Sdk="Microsoft.NET.Sdk.WindowsDesktop">
+	<PropertyGroup>
+    <ProjectGuid>{CCB925F9-4D15-46EE-96A4-43594CCEC249}</ProjectGuid>
+		<TargetFramework>net48</TargetFramework>
+    <TargetFrameworkVersion>v4.8</TargetFrameworkVersion>
+    <Platform>x64</Platform>
+		<LangVersion>8.0</LangVersion>
+		<!--<Nullable>enable</Nullable>-->
+		<AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+	</PropertyGroup>
+
+  <PropertyGroup Label="Configuration">
+    <RootNamespace>InverseTorque</RootNamespace>
+      <AssemblyName>InverseTorque</AssemblyName>
   </PropertyGroup>
-  <PropertyGroup>
-    <PostBuildEvent>
-      copy "$(TargetPath)" "%GTAV_INSTALL_DIR%\Scripts\InverseTorque.dll"
-    </PostBuildEvent>
-  </PropertyGroup>
-  <ItemGroup>
-    <PackageReference Include="ScriptHookVDotNet3" Version="3.1.0" />
-  </ItemGroup>
+  
+	<PropertyGroup>
+		<!--<DebugSymbols>true</DebugSymbols>
+		<DebugType>full</DebugType>-->
+		<Optimize>true</Optimize>
+		<!--<OutputPath>bin\net48</OutputPath>-->
+		<!--<DefineConstants>DEBUG;TRACE</DefineConstants>-->
+		<!--<ErrorReport>prompt</ErrorReport>
+		<WarningLevel>4</WarningLevel>
+		<TreatWarningsAsErrors>true</TreatWarningsAsErrors>-->
+	</PropertyGroup>
+	<ItemGroup>
+		<PackageReference Include="ScriptHookVDotNet3" Version="3.1.0" />
+	</ItemGroup>
+  <Target Name="PostBuild" AfterTargets="PostBuildEvent">
+    <Exec Command="copy &quot;$(TargetPath)&quot; &quot;%GTAV_INSTALL_DIR%\Scripts\InverseTorque.dll&quot;" />
+  </Target>
 </Project>

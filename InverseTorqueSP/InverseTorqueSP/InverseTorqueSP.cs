@@ -9,7 +9,6 @@ using System.Threading;
 
 namespace InverseTorque
 {
-
     public class InverseTorqueSP : Script
     {
         string ScriptName = "";
@@ -43,11 +42,6 @@ namespace InverseTorque
 
         public InverseTorqueSP()
         {
-#if DEBUG
-            InverseTorqueDebug = true;
-            DebugText = new GTA.UI.TextElement(" ", new System.Drawing.PointF(10f, 10f), 0.50f, System.Drawing.Color.White, Font.ChaletComprimeCologne, Alignment.Left, false, true);
-#endif
-
             Tick += OnTick;
             Aborted += OnAborted;
 
@@ -80,17 +74,12 @@ namespace InverseTorque
         bool InverseTorqueDebug = false;
         private Vehicle v;
 
-        private TextElement DebugText;
-
         void OnTick(object sender, EventArgs e)
         {
             if (WasCheatStringJustEntered("itdebug"))
             {
                 if (!Settings.GetValue<bool>("SETTINGS", "Enabled", true)) GTA.UI.Screen.ShowSubtitle("~y~Inverse Torque is disabled in Options.ini.");
                 else InverseTorqueDebug = !InverseTorqueDebug;
-
-                if(InverseTorqueDebug && DebugText == null)
-                    DebugText = new GTA.UI.TextElement(" ", new System.Drawing.PointF(10f, 10f), 0.50f, System.Drawing.Color.White, Font.ChaletComprimeCologne, Alignment.Left, false, true);
             }
             if (WasCheatStringJustEntered("itscale"))
             {
@@ -120,11 +109,6 @@ namespace InverseTorque
                     if (lastV != null)
                     {
                         RestoreVehicleFromInitialData(lastV);
-
-                        if (InverseTorqueDebug)
-                        {
-                            DebugText.Caption = " ";
-                        }
                     }
 
                     // Fetch relevant initial handling data
@@ -193,10 +177,6 @@ namespace InverseTorque
                     if (InverseTorqueDebug)
                     {
                         GTA.UI.Screen.ShowSubtitle("~n~~w~x" + Math.Round(finalFactor, 2).ToString() + " " + "~n~~w~x" + Math.Round(longLastingFact, 2).ToString(), 500);
-
-                        DebugText.Caption = $"InputTrhottle: {InputTrhottle}\nRealThrottle: {realThrottle}";
-
-                        DebugText.Draw();
                     }
 
                     prevFact = finalFactor;
