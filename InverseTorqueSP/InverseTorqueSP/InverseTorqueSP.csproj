@@ -1,6 +1,6 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk.WindowsDesktop">
 	<PropertyGroup>
-    <ProjectGuid>{CCB925F9-4D15-46EE-96A4-43594CCEC249}</ProjectGuid>
+    <ProjectGuid>{89A3C32D-2584-4FC2-849F-842FAEA0187F}</ProjectGuid>
 		<TargetFramework>net48</TargetFramework>
     <TargetFrameworkVersion>v4.8</TargetFrameworkVersion>
     <Platform>x64</Platform>

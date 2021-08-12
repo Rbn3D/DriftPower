@@ -72,5 +72,16 @@ namespace InverseTorque.Extension
 				RealThrottlePowerOffset = *(int*)(address + 6) + 0x10;
             }
         }
-    }
+
+		public static float ReadFloat(IntPtr address)
+		{
+			return *(float*)address.ToPointer();
+		}
+
+		public static void WriteFloat(IntPtr address, float value)
+		{
+			var data = (float*)address.ToPointer();
+			*data = value;
+		}
+	}
 }

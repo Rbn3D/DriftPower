@@ -6,6 +6,7 @@ using System;
 using System.Globalization;
 using System.IO;
 using System.Threading;
+using InverseTorque.Extension;
 
 namespace InverseTorque
 {
@@ -20,20 +21,20 @@ namespace InverseTorque
         float InitialCamberStiffness;
         float InitialTractionBiasFront;
 
-        float InitialRearTraction = 0.0f;
+        //float InitialRearTraction = 0.0f;
         float InitialGrip = 0.0f;
 
-        BezierCurve curveMinTraction;
-        BezierCurve curveMaxTraction;
-        BezierCurve curveTorqueMult;
-        BezierCurve curvePowerMult;
+        //BezierCurve curveMinTraction;
+        //BezierCurve curveMaxTraction;
+        //BezierCurve curveTorqueMult;
+        //BezierCurve curvePowerMult;
 
-        float prevFact = 0f;
-        float prevFactVelo = 0f;
-        float prevFactAngle = 0f;
-        float longLastingFact = 0f;
-        float longLastingFactVelo = 0f;
-        float longLastingFactAngle = 0f;
+        //float prevFact = 0f;
+        //float prevFactVelo = 0f;
+        //float prevFactAngle = 0f;
+        //float longLastingFact = 0f;
+        //float longLastingFactVelo = 0f;
+        //float longLastingFactAngle = 0f;
 
         Vehicle lastV = null;
         int lastVTyreF;
@@ -42,40 +43,74 @@ namespace InverseTorque
 
         public InverseTorqueSP()
         {
-            Tick += OnTick;
-            Aborted += OnAborted;
-
             Thread.CurrentThread.CurrentCulture = CultureInfo.GetCultureInfo("en-US");
             Settings = ScriptSettings.Load(@"scripts\InverseTorque\Options.ini");
-            Scaler = Settings.GetValue<float>("SETTINGS", "Scaler", 2f);
 
-            curveMinTraction = new BezierCurve(new Point(0f, 0f), new Point(0.45f, 0.10f), new Point(0.7f, 0.7f), new Point(1f, 1f));
-            curveMaxTraction = new BezierCurve(new Point(0f, 0f), new Point(0.45f, 0.12f), new Point(0.66f, 0.8f), new Point(1f, 1f));
-            curveTorqueMult = new BezierCurve(new Point(0f, 0f), new Point(0.45f, 0.12f), new Point(0.75f, 0.875f), new Point(1f, 1f));
-            curvePowerMult = new BezierCurve(new Point(0f, 0f), new Point(0.12f, 0.05f), new Point(0.75f, 0.875f), new Point(1f, 1f));
+            GripIdleScale       = Settings.GetValue<float>("SETTINGS", "GripIdleScale",       1.00f);
+            GripSlideScaleMax   = Settings.GetValue<float>("SETTINGS", "GripSlideScaleMax",   0.985f);
+            GripSlideScaleMin   = Settings.GetValue<float>("SETTINGS", "GripSlideScaleMin",   0.9475f);
+            PowerSlideScale     = Settings.GetValue<float>("SETTINGS", "PowerSlideScale",     1.25f);
+            TorqueSlideScale    = Settings.GetValue<float>("SETTINGS", "TorqueSlideScale",    1.60f);
+            OversteerIncrement  = Settings.GetValue<float>("SETTINGS", "OversteerIncrement",  0.25f);
+            UndersteerIncrement = Settings.GetValue<float>("SETTINGS", "UndersteerIncrement", 0.00f);
+
+            //curveMinTraction = new BezierCurve(new Point(0f, 0f), new Point(0.45f, 0.10f), new Point(0.7f, 0.7f), new Point(1f, 1f));
+            //curveMaxTraction = new BezierCurve(new Point(0f, 0f), new Point(0.45f, 0.12f), new Point(0.66f, 0.8f), new Point(1f, 1f));
+            //curveTorqueMult = new BezierCurve(new Point(0f, 0f), new Point(0.45f, 0.12f), new Point(0.75f, 0.875f), new Point(1f, 1f));
+            //curvePowerMult = new BezierCurve(new Point(0f, 0f), new Point(0.12f, 0.05f), new Point(0.75f, 0.875f), new Point(1f, 1f));
+
+            Tick += OnTick;
+            Aborted += OnAborted;
         }
 
         private void OnAborted(object sender, EventArgs e)
+        {
+            TryClearActiveVehicleCustomizations();
+        }
+
+        private void TryClearActiveVehicleCustomizations()
         {
             try
             {
                 if (v != null)
                 {
                     RestoreVehicleFromInitialData(v);
+
+                    lastV = null;
+                    v = null;
                 }
             }
             catch (Exception ex)
             {
-                GTA.UI.Screen.ShowSubtitle("~y~Error in InversTorqueSP: " + ex.ToString());
+                GTA.UI.Screen.ShowSubtitle("~y~Error in InverseTorqueSP: " + ex.ToString());
             }
         }
 
-        float Scaler = 1f;
+        float GripIdleScale;
+        float GripSlideScaleMax;
+        float GripSlideScaleMin;
+        float PowerSlideScale;
+        float TorqueSlideScale;
+        float OversteerIncrement; 
+        float UndersteerIncrement;
+
         bool InverseTorqueDebug = false;
         private Vehicle v;
 
         void OnTick(object sender, EventArgs e)
         {
+            if (WasCheatStringJustEntered("itenable"))
+            {
+                Settings.SetValue("SETTINGS", "Enabled", true);
+            }
+
+            if (WasCheatStringJustEntered("itdisable"))
+            {
+                Settings.SetValue("SETTINGS", "Enabled", false);
+
+                TryClearActiveVehicleCustomizations();
+            }
+
             if (WasCheatStringJustEntered("itdebug"))
             {
                 if (!Settings.GetValue<bool>("SETTINGS", "Enabled", true)) GTA.UI.Screen.ShowSubtitle("~y~Inverse Torque is disabled in Options.ini.");
@@ -83,18 +118,19 @@ namespace InverseTorque
             }
             if (WasCheatStringJustEntered("itscale"))
             {
+                Thread.CurrentThread.CurrentCulture = CultureInfo.GetCultureInfo("en-US");
+
                 if (!Settings.GetValue<bool>("SETTINGS", "Enabled", true)) GTA.UI.Screen.ShowSubtitle("~y~Inverse Torque is disabled in Options.ini.");
                 else
                 {
-                    GTA.UI.Screen.ShowSubtitle("~y~Inverse Torque~w~~n~Current Scaler: ~b~x" + Scaler);
-                    string m = Game.GetUserInput(5.ToString());
-                    if (float.TryParse(m, out Scaler))
-                    {
-                        GTA.UI.Screen.ShowSubtitle("~y~Inverse Torque~w~~n~Scaler set: ~b~x" + Scaler + " ~w~ at 90º");
-                    }
-                    else GTA.UI.Screen.ShowSubtitle("~y~Inverse Torque~w~~n~Invalid value: ~o~" + m);
+                    GripIdleScale       = PromptUserFloat("Grip Idle Scale",        GripIdleScale);
+                    GripSlideScaleMax   = PromptUserFloat("Grip Slide Scale (Max)", GripSlideScaleMax);
+                    GripSlideScaleMin   = PromptUserFloat("Grip Slide Scale (Min)", GripSlideScaleMin);
+                    PowerSlideScale     = PromptUserFloat("Power Slide Scale",      PowerSlideScale);
+                    TorqueSlideScale    = PromptUserFloat("Torque Slide Scale",     TorqueSlideScale);
+                    OversteerIncrement  = PromptUserFloat("Oversteer Increment",    OversteerIncrement);
+                    UndersteerIncrement = PromptUserFloat("Understeer Increment",   UndersteerIncrement);
                 }
-
             }
 
             if (!Settings.GetValue<bool>("SETTINGS", "Enabled", true)) return;
@@ -109,16 +145,35 @@ namespace InverseTorque
                     if (lastV != null)
                     {
                         RestoreVehicleFromInitialData(lastV);
+                        VehicleExtensions.ClearGForceBuffer();
                     }
 
                     // Fetch relevant initial handling data
                     FetchVehicleInitialData(v);
                 }
 
+                Vector3 gForce = VehicleExtensions.MeasureGForce(v);
+
                 if (v.CurrentGear > 0)
                 {
 
-                    float angle = Vector3.Angle(v.ForwardVector, v.Velocity.Normalized);
+                    float longitudinalForce = gForce.Y;
+                    float lateralForce = gForce.X;
+
+                    float absLongF = Math.Abs(longitudinalForce);
+                    float absLatF  = Math.Abs(lateralForce);
+
+                    float combPositiveF = Math.Max(Clamp(longitudinalForce, 0f, 1f), Clamp(absLatF, 0f, 1f));
+                    float combPositiveF2 = Math.Max(Clamp(longitudinalForce * 0.5f, 0f, 0.5f), Clamp(absLatF, 0f, 1f));
+
+
+                    float auxForwAc = Clamp(longitudinalForce, 0f, 1f);
+                    float auxBackAc = map(longitudinalForce, 0f, -1f, 0f, 1f, true);
+                    float clampedLatF = Clamp(absLatF, 0f, 1f);
+                    float combCustom = Math.Max(auxForwAc, clampedLatF) * (1f - auxBackAc);
+                    float combCustom2 = Math.Max(auxForwAc, clampedLatF) * map(1f - auxBackAc, 0f, 1f, 0.5f, 1f);
+
+                    //float angle = Vector3.Angle(v.ForwardVector, v.Velocity.Normalized);
                     //float multGrip = 0f;
                     //float tracFact = 0f;
                     //if (angle < 90)
@@ -131,57 +186,64 @@ namespace InverseTorque
                     //    multGrip = Scaler * InitialGrip; //(float)Math.Round(map(angle, 180f, 90f, 1f, Scaler * grip, true), 2);
                     //}
 
-                    Vector3 vehAngularVelocity = GTA.Native.Function.Call<Vector3>(Hash.GET_ENTITY_ROTATION_VELOCITY, v);
+                    //Vector3 vehAngularVelocity = GTA.Native.Function.Call<Vector3>(Hash.GET_ENTITY_ROTATION_VELOCITY, v);
 
-                    float veolcityFactor = Easing.EaseOutCubic01(map(vehAngularVelocity.Length(), 0f, 5f, 0f, 1f, true));
-                    float angleFactor = Easing.EaseOutCubic01(map(angle, 2.5f, 90f, 0f, 1f, true));
+                    //float veolcityFactor = Easing.EaseOutCubic01(map(vehAngularVelocity.Length(), 0f, 5f, 0f, 1f, true));
+                    //float angleFactor = Easing.EaseOutCubic01(map(angle, 2.5f, 90f, 0f, 1f, true));
 
-                    veolcityFactor *= map(v.Velocity.Length(), 0, 4, 0, 1, true);
-                    angleFactor *= map(v.Velocity.Length(), 0, 4, 0, 1, true);
+                    //veolcityFactor *= map(v.Velocity.Length(), 0, 4, 0, 1, true);
+                    //angleFactor *= map(v.Velocity.Length(), 0, 4, 0, 1, true);
 
-                    float finalFactor = Math.Max(veolcityFactor, angleFactor);
+                    //float finalFactor = Math.Max(veolcityFactor, angleFactor);
 
-                    float auxVelo = map((finalFactor - prevFactVelo), 0f, 0.1f, 1f, 100f, true);
-                    float auxAngle = map((finalFactor - prevFactAngle), 0f, 0.1f, 1f, 100f, true);
+                    //float auxVelo = map((finalFactor - prevFactVelo), 0f, 0.1f, 1f, 100f, true);
+                    //float auxAngle = map((finalFactor - prevFactAngle), 0f, 0.1f, 1f, 100f, true);
 
-                    longLastingFactVelo = Lerp(longLastingFactVelo, veolcityFactor, auxVelo * Function.Call<float>(Hash.GET_FRAME_TIME));
-                    longLastingFactAngle = Lerp(longLastingFactAngle, veolcityFactor, auxAngle * Function.Call<float>(Hash.GET_FRAME_TIME));
+                    //longLastingFactVelo = Lerp(longLastingFactVelo, veolcityFactor, auxVelo * Function.Call<float>(Hash.GET_FRAME_TIME));
+                    //longLastingFactAngle = Lerp(longLastingFactAngle, veolcityFactor, auxAngle * Function.Call<float>(Hash.GET_FRAME_TIME));
 
-                    longLastingFact = Math.Max(longLastingFactVelo, longLastingFactAngle);
+                    //longLastingFact = Math.Max(longLastingFactVelo, longLastingFactAngle);
 
-                    float SqLongLastingFact = (float)Math.Pow(longLastingFact, 2.0f);
+                    //float SqLongLastingFact = (float)Math.Pow(longLastingFact, 2.0f);
+
+
 
                     var VHandling = v.HandlingData;
 
-                    float InputTrhottle = GTA.Game.GetControlValueNormalized(Control.VehicleAccelerate);
-                    float realThrottle = v.ThrottlePower;
-
-                    if (true) // TODO Add config flag
+                    if (InverseTorqueDebug)
                     {
+                        //float InputTrhottle = GTA.Game.GetControlValueNormalized(Control.VehicleAccelerate);
+                        //float realThrottle = v.GetVehicleRealThrotle();
 
+                        //GTA.UI.Screen.ShowSubtitle("~n~~w~x" + Math.Round(InputTrhottle, 2).ToString() + " " + "~n~~w~x" + Math.Round(realThrottle, 2).ToString(), 500);
+                        GTA.UI.Screen.ShowSubtitle("~n~~w~ X" + Math.Round(gForce.X, 2).ToString() + " " + "~n~~w~ Y" + Math.Round(gForce.Y, 2).ToString(), 500);
                     }
 
 
                     //VHandling.TractionCurveMax = InitialTractionCurveMax * 1.005f;
-                    VHandling.TractionCurveMax = Lerp(InitialTractionCurveMax * 0.996f, InitialTractionCurveMax * 0.9865f, SqLongLastingFact);
-                    VHandling.TractionCurveMin = Lerp(InitialTractionCurveMin * 0.996f, InitialTractionCurveMin * 0.9865f, SqLongLastingFact);
-                    VHandling.CamberStiffness = Lerp(InitialCamberStiffness + (0.0155f * InitialRearTraction), InitialCamberStiffness - (0.0325f * InitialRearTraction), SqLongLastingFact * Math.Min(0.30f, Math.Max((float)Math.Pow(v.ThrottlePower, 2f), v.BrakePower)));
+                    VHandling.TractionCurveMax = Lerp(InitialTractionCurveMax * GripIdleScale, InitialTractionCurveMax * GripSlideScaleMax, combCustom2);
+                    VHandling.TractionCurveMin = Lerp(InitialTractionCurveMin * GripIdleScale, InitialTractionCurveMin * GripSlideScaleMin, combCustom2);
+
+                    float auxSlideCamberStiffness = Lerp(InitialCamberStiffness, -0.10f, OversteerIncrement);
+                    float auxIdleCamberStiffness  = Lerp(InitialCamberStiffness,  0.10f, UndersteerIncrement);
+
+                    VHandling.CamberStiffness = Lerp(auxIdleCamberStiffness, auxSlideCamberStiffness, combCustom);
 
                     //float easedThrotle = Easing.EaseOutCubic01(v.ThrottlePower);
 
                     //v.EngineTorqueMultiplier = 1f + ((float)curveTorqueMult.GetY(longLastingFact));
                     //v.EnginePowerMultiplier = 1f + ((float)curvePowerMult.GetY(longLastingFact));
-                    v.EngineTorqueMultiplier = 1f + (SqLongLastingFact * 0.75f);
-                    v.EnginePowerMultiplier = 1f + (SqLongLastingFact * 0.75f);
+                    v.EnginePowerMultiplier  = Lerp(1f, PowerSlideScale, absLatF);
+                    v.EngineTorqueMultiplier = Lerp(1f, TorqueSlideScale, combCustom);
 
-                    if (InverseTorqueDebug)
-                    {
-                        GTA.UI.Screen.ShowSubtitle("~n~~w~x" + Math.Round(finalFactor, 2).ToString() + " " + "~n~~w~x" + Math.Round(longLastingFact, 2).ToString(), 500);
-                    }
+                    //if (InverseTorqueDebug)
+                    //{
+                    //    //GTA.UI.Screen.ShowSubtitle("~n~~w~x" + Math.Round(finalFactor, 2).ToString() + " " + "~n~~w~x" + Math.Round(longLastingFact, 2).ToString(), 500);
+                    //}
 
-                    prevFact = finalFactor;
-                    prevFactVelo = veolcityFactor;
-                    prevFactAngle = angleFactor;
+                    //prevFact = finalFactor;
+                    //prevFactVelo = veolcityFactor;
+                    //prevFactAngle = angleFactor;
                 }
                 else
                 {
@@ -201,15 +263,30 @@ namespace InverseTorque
             }
             else
             {
-                prevFact = 0f;
-                prevFactVelo = 0f;
-                prevFactAngle = 0f;
-                longLastingFact = 0f;
-                longLastingFactVelo = 0f;
-                longLastingFactAngle = 0f;
+                //prevFact = 0f;
+                //prevFactVelo = 0f;
+                //prevFactAngle = 0f;
+                //longLastingFact = 0f;
+                //longLastingFactVelo = 0f;
+                //longLastingFactAngle = 0f;
+
+                VehicleExtensions.ClearGForceBuffer();
             }
 
             lastV = Game.Player.Character.CurrentVehicle;
+        }
+
+        private float PromptUserFloat(string valueName, float value)
+        {
+            GTA.UI.Screen.ShowSubtitle($"~y~Inverse Torque~w~~n~{valueName}: ~b~x" + value);
+            string m = Game.GetUserInput(value.ToString()).Replace(",", ".");
+            if (float.TryParse(m, out value))
+            {
+                GTA.UI.Screen.ShowSubtitle($"~y~Inverse Torque~w~~n~{valueName} set: ~b~x" + value + " ~w~");
+            }
+            else GTA.UI.Screen.ShowSubtitle("~y~Inverse Torque~w~~n~Invalid value: ~o~" + m);
+
+            return value;
         }
 
         private int GetModIndex(Vehicle veh, VehicleModType modType)
@@ -237,7 +314,7 @@ namespace InverseTorque
             InitialCamberStiffness = VHandling.CamberStiffness;
             InitialTractionBiasFront = VHandling.TractionBiasFront;
 
-            InitialRearTraction = map(InitialTractionBiasFront, 0.01f, 0.99f, 1.0f, 0.0f, true);
+            //InitialRearTraction = map(InitialTractionBiasFront, 0.01f, 0.99f, 1.0f, 0.5f, true);
             InitialGrip = Function.Call<float>((Hash)0xA132FB5370554DB0, veh);
         }
 
