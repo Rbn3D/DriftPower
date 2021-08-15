@@ -39,7 +39,7 @@ namespace InverseTorque.Extension
 
         private static List<Vector3> previousAccelerationVectors = new List<Vector3>();
 
-        private static int movingAverageWindow = 10;
+        private static int movingAverageWindow = 1;
 
         public static Vector3 MeasureGForce(Vehicle vehicle)
         {

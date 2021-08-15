@@ -17,5 +17,10 @@ namespace InverseTorque
         {
             return t * t * t;
         }
+
+        public static float EaseOutCirc01(float t)
+        {
+            return (float)Math.Sqrt(1f - (t = t - 1f) * t);
+        }
     }
 }

@@ -47,11 +47,11 @@ namespace InverseTorque
             Settings = ScriptSettings.Load(@"scripts\InverseTorque\Options.ini");
 
             GripIdleScale       = Settings.GetValue<float>("SETTINGS", "GripIdleScale",       1.00f);
-            GripSlideScaleMax   = Settings.GetValue<float>("SETTINGS", "GripSlideScaleMax",   0.985f);
-            GripSlideScaleMin   = Settings.GetValue<float>("SETTINGS", "GripSlideScaleMin",   0.955f);
-            PowerSlideScale     = Settings.GetValue<float>("SETTINGS", "PowerSlideScale",     1.60f);
-            TorqueSlideScale    = Settings.GetValue<float>("SETTINGS", "TorqueSlideScale",    1.60f);
-            OversteerIncrement  = Settings.GetValue<float>("SETTINGS", "OversteerIncrement",  0.20f);
+            GripSlideScaleMax   = Settings.GetValue<float>("SETTINGS", "GripSlideScaleMax",   0.992f);
+            GripSlideScaleMin   = Settings.GetValue<float>("SETTINGS", "GripSlideScaleMin",   0.958f);
+            PowerSlideScale     = Settings.GetValue<float>("SETTINGS", "PowerSlideScale",     1.70f);
+            TorqueSlideScale    = Settings.GetValue<float>("SETTINGS", "TorqueSlideScale",    1.70f);
+            OversteerIncrement  = Settings.GetValue<float>("SETTINGS", "OversteerIncrement",  0.65f);
             UndersteerIncrement = Settings.GetValue<float>("SETTINGS", "UndersteerIncrement", 0.10f);
 
             //curveMinTraction = new BezierCurve(new Point(0f, 0f), new Point(0.45f, 0.10f), new Point(0.7f, 0.7f), new Point(1f, 1f));
@@ -156,17 +156,11 @@ namespace InverseTorque
 
                 if (v.CurrentGear > 0)
                 {
-
                     float longitudinalForce = gForce.Y;
                     float lateralForce = gForce.X;
 
-                    //float absLongF = Math.Abs(longitudinalForce);
                     float absLatF  = Math.Abs(lateralForce);
-                    //float absLatFsSq  = (float)Math.Pow(absLatF, 2f);
-
-                    //float combPositiveF = Math.Max(Clamp(longitudinalForce, 0f, 1f), Clamp(absLatF, 0f, 1f));
-                    //float combPositiveF2 = Math.Max(Clamp(longitudinalForce * 0.5f, 0f, 0.5f), Clamp(absLatF, 0f, 1f));
-
+                    float absLongF  = Math.Abs(longitudinalForce);
 
                     float auxForwAc = Math.Max(0f, longitudinalForce);
                     float auxForwAc03 = Clamp(longitudinalForce, 0f, 0.4f);
@@ -179,6 +173,20 @@ namespace InverseTorque
                     float combCustom3L = Math.Max(auxForwAc06, absLatF);
                     float combCustom3Lm = Math.Max(auxForwAc06, absLatF) * (1f - auxBackAc);
 
+                    float aux1 = Math.Max(0f, longitudinalForce);
+                    float longForwOrLatF = Math.Max(aux1, absLatF);
+                    float longOrLatF = Math.Max(longitudinalForce, absLatF);
+
+                    float camberFact = Clamp01(map(longitudinalForce, -1.3f, 1.3f, 0.25f, 0.75f, true) + Easing.EaseOutCubic01(map(absLatF, 0f, 1.30f, 0f, 0.25f)));
+                    float altFact    = Clamp01(map(longitudinalForce, 0f, 1.30f, 0f, 1f, true) + map(absLatF, 0f, 1.30f, 0f, 1f));
+                    float fullFact   = Clamp01(map(absLongF, 0f, 1.30f, 0f, 1f, true) + map(absLatF, 0f, 1.30f, 0f, 1f));
+                    float fullFactAlt   = Clamp01(map(absLongF, 0f, 1.30f, 0f, 0.5f, true) + map(absLatF, 0f, 1.30f, 0f, 1f));
+                    float fullFactAlt2   = Clamp01(map(absLongF, 0f, 1.30f, 0f, 0.15f, true) + Easing.EaseOutCirc01(map(absLatF, 0f, 1.50f, 0f, 1f)));
+
+
+                    float accelInc = map(v.GetVehicleRealThrotle(), 0f, 1f, 0f, 0.25f, true) * Clamp01(absLatF);
+
+
                     var VHandling = v.HandlingData;
 
                     if (InverseTorqueDebug)
@@ -186,16 +194,16 @@ namespace InverseTorque
                         GTA.UI.Screen.ShowSubtitle("~n~~w~ X" + Math.Round(gForce.X, 2).ToString() + " " + "~n~~w~ Y" + Math.Round(gForce.Y, 2).ToString(), 500);
                     }
 
-                    VHandling.TractionCurveMax = Lerp(InitialTractionCurveMax * GripIdleScale, InitialTractionCurveMax * GripSlideScaleMax, Powf(combCustom2, 1.5f));
-                    VHandling.TractionCurveMin = Lerp(InitialTractionCurveMin * GripIdleScale, InitialTractionCurveMin * GripSlideScaleMin, Powf(combCustom, 1.5f));
+                    VHandling.TractionCurveMax = Lerp(InitialTractionCurveMax * GripIdleScale, InitialTractionCurveMax * GripSlideScaleMax, Powf(fullFactAlt2, 1.79f));
+                    VHandling.TractionCurveMin = Lerp(InitialTractionCurveMin * GripIdleScale, InitialTractionCurveMin * GripSlideScaleMin, Powf(fullFactAlt2, 1.79f));
 
-                    float auxSlideCamberStiffness = Lerp(InitialCamberStiffness, -0.10f, OversteerIncrement);
-                    float auxIdleCamberStiffness  = Lerp(InitialCamberStiffness,  0.10f, UndersteerIncrement);
+                    float auxSlideCamberStiffness   = Lerp(0f, -0.10f, OversteerIncrement);
+                    float auxForwardCamberStiffness = Lerp(0f,  0.10f, UndersteerIncrement);
 
-                    VHandling.CamberStiffness = Lerp(auxIdleCamberStiffness, auxSlideCamberStiffness, combCustom3Lm);
+                    VHandling.CamberStiffness = Lerp(auxForwardCamberStiffness, auxSlideCamberStiffness, camberFact);
 
-                    v.EnginePowerMultiplier  = Lerp(1f, PowerSlideScale, Powf(combCustom2L, 1.7f));
-                    v.EngineTorqueMultiplier = Lerp(1f, TorqueSlideScale, Powf(combCustom3L, 1.7f));
+                    v.EnginePowerMultiplier  = Lerp(1f, PowerSlideScale, Powf(fullFactAlt2, 1.75f));
+                    v.EngineTorqueMultiplier = Lerp(1f, TorqueSlideScale, Powf(fullFactAlt2, 1.75f));
                 }
                 else
                 {
@@ -275,6 +283,11 @@ namespace InverseTorque
             if (val.CompareTo(min) < 0) return min;
             else if (val.CompareTo(max) > 0) return max;
             else return val;
+        }
+
+        public static float Clamp01(float val)
+        {
+            return Clamp(val, 0f, 1f);
         }
 
         public static float Lerp(float a, float b, float t)
