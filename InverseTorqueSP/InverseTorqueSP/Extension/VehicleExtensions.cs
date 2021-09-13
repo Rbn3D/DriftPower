@@ -20,7 +20,7 @@ namespace InverseTorque.Extension
                 return 0.0f;
             }
 
-            return NativeMemoryEx.ReadFloat(vehicle.MemoryAddress + NativeMemoryEx.RealThrottlePowerOffset);
+            return NativeMemoryEx.ReadFloat(address + NativeMemoryEx.RealThrottlePowerOffset);
         }
 
         public static void SetVehicleRealThrotle(this Vehicle vehicle, float value)
@@ -32,7 +32,55 @@ namespace InverseTorque.Extension
                 return;
             }
 
-            NativeMemoryEx.WriteFloat(vehicle.MemoryAddress + NativeMemoryEx.RealThrottlePowerOffset, value);
+            NativeMemoryEx.WriteFloat(address + NativeMemoryEx.RealThrottlePowerOffset, value);
+        }
+
+        public static float GetVehicleLowSpeedTractionMult(this HandlingData hData)
+        {
+            var address = hData.MemoryAddress;
+
+            if (address == IntPtr.Zero || NativeMemoryEx.LowSpeedTractionMultOffset == 0)
+            {
+                return 0.0f;
+            }
+
+            return NativeMemoryEx.ReadFloat(address + NativeMemoryEx.LowSpeedTractionMultOffset);
+        }
+
+        public static void SetVehicleLowSpeedTractionMult(this HandlingData hData, float value)
+        {
+            var address = hData.MemoryAddress;
+
+            if (address == IntPtr.Zero || NativeMemoryEx.LowSpeedTractionMultOffset == 0)
+            {
+                return;
+            }
+
+            NativeMemoryEx.WriteFloat(address + NativeMemoryEx.LowSpeedTractionMultOffset, value);
+        }
+
+        public static float GetVehicleTractionCurveLateral(this HandlingData hData)
+        {
+            var address = hData.MemoryAddress;
+
+            if (address == IntPtr.Zero || NativeMemoryEx.TractionCurveLateralOffset == 0)
+            {
+                return 0.0f;
+            }
+
+            return NativeMemoryEx.ReadFloat(address + NativeMemoryEx.TractionCurveLateralOffset);
+        }
+
+        public static void SetVehicleTractionCurveLateral(this HandlingData hData, float value)
+        {
+            var address = hData.MemoryAddress;
+
+            if (address == IntPtr.Zero || NativeMemoryEx.TractionCurveLateralOffset == 0)
+            {
+                return;
+            }
+
+            NativeMemoryEx.WriteFloat(address + NativeMemoryEx.TractionCurveLateralOffset, value);
         }
 
         private static Vector3 previousVelocity = new Vector3();

@@ -11,6 +11,8 @@ namespace InverseTorque.Extension
     public static unsafe class NativeMemoryEx
     {
 		public static int RealThrottlePowerOffset { get; }
+		public static int LowSpeedTractionMultOffset { get; }
+		public static int TractionCurveLateralOffset { get; }
 
 		[DllImport("ScriptHookV.dll", ExactSpelling = true, EntryPoint = "?getGameVersion@@YA?AW4eGameVersion@@XZ")]
 		public static extern int GetGameVersion();
@@ -71,7 +73,11 @@ namespace InverseTorque.Extension
             {
 				RealThrottlePowerOffset = *(int*)(address + 6) + 0x10;
             }
-        }
+
+			LowSpeedTractionMultOffset = 0x00A8;
+			TractionCurveLateralOffset = 0x0098;
+
+		}
 
 		public static float ReadFloat(IntPtr address)
 		{
