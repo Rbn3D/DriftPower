@@ -1,0 +1,33 @@
+﻿<Project Sdk="Microsoft.NET.Sdk.WindowsDesktop">
+	<PropertyGroup>
+    <ProjectGuid>{89A3C32D-2584-4FC2-849F-842FAEA0187F}</ProjectGuid>
+		<TargetFramework>net48</TargetFramework>
+    <TargetFrameworkVersion>v4.8</TargetFrameworkVersion>
+    <Platform>x64</Platform>
+		<LangVersion>8.0</LangVersion>
+		<!--<Nullable>enable</Nullable>-->
+		<AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+	</PropertyGroup>
+
+  <PropertyGroup Label="Configuration">
+    <RootNamespace>DriftPower</RootNamespace>
+      <AssemblyName>DriftPower</AssemblyName>
+  </PropertyGroup>
+  
+	<PropertyGroup>
+		<!--<DebugSymbols>true</DebugSymbols>
+		<DebugType>full</DebugType>-->
+		<Optimize>true</Optimize>
+		<!--<OutputPath>bin\net48</OutputPath>-->
+		<!--<DefineConstants>DEBUG;TRACE</DefineConstants>-->
+		<!--<ErrorReport>prompt</ErrorReport>
+		<WarningLevel>4</WarningLevel>
+		<TreatWarningsAsErrors>true</TreatWarningsAsErrors>-->
+	</PropertyGroup>
+	<ItemGroup>
+		<PackageReference Include="ScriptHookVDotNet3" Version="3.1.0" />
+	</ItemGroup>
+  <Target Name="PostBuild" AfterTargets="PostBuildEvent">
+    <Exec Command="copy &quot;$(TargetPath)&quot; &quot;%GTAV_INSTALL_DIR%\Scripts\DriftPower.dll&quot;" />
+  </Target>
+</Project>
