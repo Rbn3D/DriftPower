@@ -27,4 +27,9 @@ DriftPower is not meant to bring physically correct driving physics to be game. 
 Expect binary releases and simple install instructions soon... (But, in case you don't mind to get your hands dirty, just clone the repo and compile using VS 2022, the .asi goes to the 'scripts' folder) 
 
 
+### Acknowledgements
+
+Rockstar for making GTA V and allow single player mods on it.
+Eddlm for his InverseTorque mod, which my mod was initially based on.
+
 ### TO BE CONTINUED...
