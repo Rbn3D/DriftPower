@@ -4,7 +4,7 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 
-namespace DriftPower
+namespace DriftPower.Math
 {
     public static class Easing
     {

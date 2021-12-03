@@ -9,6 +9,7 @@ using System.Threading;
 using DriftPower.Extension;
 using DriftPower.Math;
 using DriftPower.VehicleControl;
+using System.Collections.Generic;
 
 namespace DriftPower
 {
@@ -43,19 +44,19 @@ namespace DriftPower
             Thread.CurrentThread.CurrentCulture = CultureInfo.GetCultureInfo("en-US");
             Settings = ScriptSettings.Load(@"scripts\DriftPower\Settings.ini");
 
-            CustomTractionCurveMax = Settings.GetValue<float>("SETTINGS", "CustomTractionCurveMax", 2.26f);
-            CustomTractionCurveMin = Settings.GetValue<float>("SETTINGS", "CustomTractionCurveMin", 2.02f);
+            PowerSlideScale        = Settings.GetValue<float>("SETTINGS", "PowerSlideScale", 1.0f);
+            TorqueSlideScale       = Settings.GetValue<float>("SETTINGS", "TorqueSlideScale", 1.9f);
+            CustomTractionCurveMax = Settings.GetValue<float>("SETTINGS", "CustomTractionCurveMax", 2.28f);
+            CustomTractionCurveMin = Settings.GetValue<float>("SETTINGS", "CustomTractionCurveMin", 2.04f);
             CustomTractionMaxBias  = Settings.GetValue<float>("SETTINGS", "CustomTractionMaxBias",  1f);
             CustomTractionMinBias  = Settings.GetValue<float>("SETTINGS", "CustomTractionMinBias",  1f);
-            PowerSlideScale     = Settings.GetValue<float>("SETTINGS", "PowerSlideScale",     0.80f);
-            TorqueSlideScale    = Settings.GetValue<float>("SETTINGS", "TorqueSlideScale",    2.5f);
-            CustomSteeringLock  = Settings.GetValue<float>("SETTINGS", "CustomSteeringLock",  1f);
+            CustomSteeringLock     = Settings.GetValue<float>("SETTINGS", "CustomSteeringLock",  1f);
             CustomCamberStiffness  = Settings.GetValue<float>("SETTINGS", "CustomCamberStiffness", 0f);
-            RotationZSpeedMultiplier = Settings.GetValue<float>("SETTINGS", "AngularRotationMultiplier", 0.985f);
-            SteeringSpeedMultiplier = Settings.GetValue<float>("SETTINGS", "SteeringSpeedMultiplier", 1f);
-            MaxSteeringAngle = Settings.GetValue<float>("SETTINGS", "MaxSteeringAngle", 35f);
-            SteeringReductionMultiplier = Settings.GetValue<float>("SETTINGS", "SteeringReductionMultiplier", 0.25f);
-            MaxAutoCounterSteerAngle = Settings.GetValue<float>("SETTINGS", "MaxAutoCounterSteerAngle", 12.5f);
+            RotationZSpeedMultiplier    = Settings.GetValue<float>("SETTINGS", "AngularRotationMultiplier", 0.985f);
+            SteeringSpeedMultiplier     = Settings.GetValue<float>("SETTINGS", "SteeringSpeedMultiplier", 1f);
+            MaxSteeringAngle            = Settings.GetValue<float>("SETTINGS", "MaxSteeringAngle", 30f);
+            SteeringReductionMultiplier = Settings.GetValue<float>("SETTINGS", "SteeringReductionMultiplier", 0.5f);
+            MaxAutoCounterSteerAngle    = Settings.GetValue<float>("SETTINGS", "MaxAutoCounterSteerAngle", 12.5f);
 
             Tick += OnTick;
             Aborted += OnAborted;
@@ -101,8 +102,7 @@ namespace DriftPower
 
         bool DriftPowerDebug = false;
         private Vehicle v;
-        private VehicleWheel wheelFL;
-        private VehicleWheel wheelFR;
+        private List<IntPtr> vehWheelAddresses = null;
 
         void OnTick(object sender, EventArgs e)
         {
@@ -120,9 +120,12 @@ namespace DriftPower
 
             if (WasCheatStringJustEntered("itdebug"))
             {
-                if (!Settings.GetValue<bool>("SETTINGS", "Enabled", true)) GTA.UI.Screen.ShowSubtitle("~y~DriftPower is disabled in Options.ini.");
-                else DriftPowerDebug = !DriftPowerDebug;
+                if (!Settings.GetValue<bool>("SETTINGS", "Enabled", true)) 
+                    GTA.UI.Screen.ShowSubtitle("~y~DriftPower is disabled in Options.ini.");
+                else 
+                    DriftPowerDebug = !DriftPowerDebug;
             }
+
             if (WasCheatStringJustEntered("itscale"))
             {
                 Thread.CurrentThread.CurrentCulture = CultureInfo.GetCultureInfo("en-US");
@@ -171,6 +174,18 @@ namespace DriftPower
 
                 Vector3 gForce = VehicleExtensions.MeasureGForce(v);
 
+                if (DriftPowerDebug)
+                {
+                    string str = "WHL COUNT: " + vehWheelAddresses.Count + "  ";
+
+                    for (int i = 0; i < vehWheelAddresses.Count; i++)
+                    {
+                        str += "W" + i + " slip: " + System.Math.Round(VehicleExtensions.GetVehicleWheelSlip(vehWheelAddresses[i]), 2) + "  ";
+                    }
+
+                    GTA.UI.Screen.ShowSubtitle("~n~~w~" + str);
+                }
+
                 if (v.CurrentGear > 0)
                 {
                     float longitudinalForce = gForce.Y;
@@ -184,12 +199,6 @@ namespace DriftPower
                     float fullFactAlt2   = MathUtils.Clamp01(MathUtils.Map(absLongF, 0f, 1.30f, 0f, 0.15f, true) + Easing.EaseOutCirc01(MathUtils.Map(absLatF, 0f, 1.50f, 0f, 1f)));
                     
                     var VHandling = v.HandlingData;
-
-                    if (DriftPowerDebug)
-                    {
-                        //GTA.UI.Screen.ShowSubtitle("~n~~w~ X" + System.Math.Round(gForce.X, 2).ToString() + " " + "~n~~w~ Y" + System.Math.Round(gForce.Y, 2).ToString(), 500);
-                        GTA.UI.Screen.ShowSubtitle("~n~~w~" + System.Math.Round(InitialTractionBiasFront, 2).ToString());
-                    }
 
                     float exp = 1.791f;
                     float expLowTraction = 1.79315f;
@@ -208,9 +217,10 @@ namespace DriftPower
                     VHandling.SteeringLock = CustomSteeringLock;
                     VHandling.SetVehicleLowSpeedTractionMult(0f);
 
-                    VHandling.TractionBiasFront = MathUtils.Lerp(1.0025f, 0.9975f, latTractionFactor); // 0.00 | 2.00 range
+                    VHandling.TractionBiasFront = 1.0f; // 0.00 | 2.00 range
 
-                    VHandling.SetVehicleTractionCurveLateral(22.5f);
+                    //VHandling.TractionBiasFront = MathUtils.Lerp(1.0025f, 0.9975f, latTractionFactor); // 0.00 | 2.00 range
+                    //VHandling.SetVehicleTractionCurveLateral(22.5f);
 
                     __currInertiaMultiplier.Z = InitialInertiaMultiplier.Z * RotationZSpeedMultiplier;
 
@@ -272,45 +282,31 @@ namespace DriftPower
             lastVHandling.SteeringLock = InitialSteeringLock;
             lastVHandling.InertiaMultiplier = InitialInertiaMultiplier;
             lastVHandling.TractionBiasFront = InitialTractionBiasFront;
+
+            vehWheelAddresses = null;
         }
 
         private void FetchVehicleInitialData(Vehicle veh)
         {
             var VHandling = veh.HandlingData;
 
-            InitialTractionCurveMax = VHandling.TractionCurveMax;
-            InitialTractionCurveMin = VHandling.TractionCurveMin;
-            InitialCamberStiffness = VHandling.CamberStiffness;
-            InitialSteeringLock = VHandling.SteeringLock;
+            InitialTractionCurveMax  = VHandling.TractionCurveMax;
+            InitialTractionCurveMin  = VHandling.TractionCurveMin;
+            InitialCamberStiffness   = VHandling.CamberStiffness;
+            InitialSteeringLock      = VHandling.SteeringLock;
             InitialInertiaMultiplier = VHandling.InertiaMultiplier;
             InitialTractionBiasFront = VHandling.TractionBiasFront;
-            __currInertiaMultiplier = InitialInertiaMultiplier;
+            __currInertiaMultiplier  = InitialInertiaMultiplier;
 
             //InitialRearTraction = map(InitialTractionBiasFront, 0.01f, 0.99f, 1.0f, 0.5f, true);
             InitialGrip = Function.Call<float>((Hash)0xA132FB5370554DB0, veh);
 
             customSteering = new CustomSteering(veh);
 
-            //for (int i = 0; i < veh.Wheels.Count; i++)
-            //{
-            //    VehicleWheel curWheel = veh.Wheels[i];
-            //}
+            vehWheelAddresses = VehicleExtensions.GetVehicleWheelAddresses(veh);
         }
 
         /// TOOLS ///
-        void LoadSettings()
-        {
-            if (File.Exists(@"scripts\\SCRIPTNAME.ini"))
-            {
-
-                ScriptSettings config = ScriptSettings.Load(@"scripts\SCRIPTNAME.ini");
-                // = config.GetValue<bool>("GENERAL_SETTINGS", "NAME", true);
-            }
-            else
-            {
-                WarnPlayer(ScriptName + " " + ScriptVer, "SCRIPT RESET", "~g~Towing Service has been cleaned and reset succesfully.");
-            }
-        }
 
         void WarnPlayer(string script_name, string title, string message)
         {

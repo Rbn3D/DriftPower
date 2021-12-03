@@ -1,6 +1,6 @@
 using System;
 
-namespace DriftPower
+namespace DriftPower.Math
 { 
     public class Point
     {

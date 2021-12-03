@@ -11,6 +11,23 @@ namespace DriftPower.Extension
 {
     public static class VehicleExtensions
     {
+        public static List<IntPtr> GetVehicleWheelAddresses(this Vehicle vehicle)
+        {
+            var list = new List<IntPtr>();
+
+            int count = vehicle.Wheels.Count;
+
+            if (vehicle.Model.IsCar && count < 4)
+                count = 4;
+
+            for (int i = 0; i < count; i++)
+            {
+                list.Add(NativeMemoryEx.GetVehicleWheelAddressByIndexOfWheelArray(vehicle.MemoryAddress, i));
+            }
+
+            return list;
+        }
+
         public static float GetVehicleRealThrotle(this Vehicle vehicle)
         {
             var address = vehicle.MemoryAddress;
@@ -33,6 +50,16 @@ namespace DriftPower.Extension
             }
 
             NativeMemoryEx.WriteFloat(address + NativeMemoryEx.RealThrottlePowerOffset, value);
+        }
+
+        public static float GetVehicleWheelSlip(IntPtr wheelAddress)
+        {
+            return NativeMemoryEx.ReadFloat(wheelAddress + NativeMemoryEx.WheelSlipOffset);
+        }
+
+        public static void SetVehicleWheelSlip(IntPtr wheelAddress, float value)
+        {
+            NativeMemoryEx.WriteFloat(wheelAddress + NativeMemoryEx.WheelSlipOffset, value);
         }
 
         public static float GetVehicleLowSpeedTractionMult(this HandlingData hData)

@@ -13,6 +13,8 @@ namespace DriftPower.Extension
 		public static int RealThrottlePowerOffset { get; }
 		public static int LowSpeedTractionMultOffset { get; }
 		public static int TractionCurveLateralOffset { get; }
+		public static int WheelPtrArrayOffset { get; }
+		public static int WheelSlipOffset { get; } = 364; // 16C
 
 		[DllImport("ScriptHookV.dll", ExactSpelling = true, EntryPoint = "?getGameVersion@@YA?AW4eGameVersion@@XZ")]
 		public static extern int GetGameVersion();
@@ -31,7 +33,7 @@ namespace DriftPower.Extension
 		/// <param name="pattern">The pattern.</param>
 		/// <param name="mask">The pattern mask.</param>
 		/// <returns>The address of a region matching the pattern or <c>null</c> if none was found.</returns>
-		static unsafe byte* FindPattern(string pattern, string mask)
+		public static unsafe byte* FindPattern(string pattern, string mask)
 		{
 			ProcessModule module = Process.GetCurrentProcess().MainModule;
 			return FindPattern(pattern, mask, module.BaseAddress, (ulong)module.ModuleMemorySize);
@@ -45,7 +47,7 @@ namespace DriftPower.Extension
 		/// <param name="startAddress">The address to start searching at.</param>
 		/// <param name="size">The size where the pattern search will be performed from <paramref name="startAddress"/>.</param>
 		/// <returns>The address of a region matching the pattern or <c>null</c> if none was found.</returns>
-		static unsafe byte* FindPattern(string pattern, string mask, IntPtr startAddress, ulong size)
+		public static unsafe byte* FindPattern(string pattern, string mask, IntPtr startAddress, ulong size)
 		{
 			ulong address = (ulong)startAddress.ToInt64();
 			ulong endAddress = address + size;
@@ -77,6 +79,14 @@ namespace DriftPower.Extension
 			LowSpeedTractionMultOffset = 0x00A8;
 			TractionCurveLateralOffset = 0x0098;
 
+			address = NativeMemoryEx.FindPattern("\x48\x63\x99\x00\x00\x00\x00\x45\x33\xC0\x45\x8B\xD0\x48\x85\xDB", "xxx????xxxxxxxxx");
+			if (address != null)
+			{
+                int AuxWheelCountOffset = *(int*)(address + 3);
+				WheelPtrArrayOffset = AuxWheelCountOffset - 8;
+				//WheelBoneIdToPtrArrayIndexOffset = WheelCountOffset + 4;
+			}
+
 		}
 
 		public static float ReadFloat(IntPtr address)
@@ -88,6 +98,16 @@ namespace DriftPower.Extension
 		{
 			var data = (float*)address.ToPointer();
 			*data = value;
+		}
+
+		public static IntPtr GetVehicleWheelAddressByIndexOfWheelArray(IntPtr vehicleAddress, int index)
+		{
+			var vehicleWheelArrayAddr = *(ulong**)(vehicleAddress + WheelPtrArrayOffset);
+
+			if (vehicleWheelArrayAddr == null)
+				return IntPtr.Zero;
+
+			return new IntPtr((long)*(vehicleWheelArrayAddr + index));
 		}
 	}
 }
